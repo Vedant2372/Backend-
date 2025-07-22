@@ -1,16 +1,28 @@
 from flask import Flask, request, jsonify
-from indexer import index_documents
 
 app = Flask(__name__)
 
 @app.route("/index", methods=["POST"])
-def index():
-    data = request.json
-    if not data or "parsed_docs" not in data:
-        return jsonify({"error": "No parsed_docs provided"}), 400
+def index_documents():
+    try:
+        data = request.get_json()
+        parsed_docs = data.get("parsed_docs", {})
 
-    count = index_documents(data["parsed_docs"])
-    return jsonify({"message": f"{count} documents indexed successfully."}), 200
+        print(f"[INDEXER] Received {len(parsed_docs)} docs")
+
+        # ▶ Place your indexing logic here
+        # For example:
+        from indexer import index_documents
+        index_documents(parsed_docs)
+
+        return jsonify({"message": "Indexed successfully", "count": len(parsed_docs)}), 200
+
+    except Exception as e:
+        import traceback
+        print("[INDEXER ERROR]", str(e))
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
+    print("⚙️ Indexer Service running on port 5002")
     app.run(port=5002)
