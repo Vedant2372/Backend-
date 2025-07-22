@@ -1,21 +1,20 @@
 import os
 
 # ✅ File extensions you want to index
-ALLOWED_EXTENSIONS = {
-    ".pdf", ".docx", ".txt", ".xlsx", ".pptx", ".csv",
-    ".py", ".java", ".ipynb", ".db", ".sqlite"
-}
+VALID_EXTENSIONS = [".txt", ".pdf", ".docx", ".xlsx", ".xls", ".py", ".java", ".cpp", ".c"]
+
 
 # 🚫 Folder names (partial matches) to skip
 EXCLUDED_DIRS = [
-    "recycle", "system volume information", "windows", "program files",
-    "programdata", "appdata", "temp", "logs", "venv", ".venv", "env", ".env",
-    ".git", "node_modules", "__pycache__", ".cache", ".idea", ".vscode"
+    "Windows", "Program Files", "ProgramData", ".git", ".venv",
+    "AppData", "System Volume Information", "$RECYCLE.BIN",
+    "node_modules", "__pycache__", ".idea", ".vscode"
 ]
+
 
 def is_valid_file(file_path):
     _, ext = os.path.splitext(file_path)
-    return ext.lower() in ALLOWED_EXTENSIONS
+    return ext.lower() in VALID_EXTENSIONS
 
 def should_skip_folder(folder_path):
     folder_path_lower = folder_path.lower()
