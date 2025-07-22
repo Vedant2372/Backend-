@@ -1,11 +1,10 @@
-# search_service/query_embedder.py
-
 from sentence_transformers import SentenceTransformer
 import numpy as np
+from typing import List
 
 class QueryEmbedder:
     """
-    Converts a natural language search query into a vector using a sentence transformer.
+    Converts text queries and documents into vector embeddings using a sentence transformer.
     """
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
@@ -30,3 +29,16 @@ class QueryEmbedder:
         """
         embedding = self.model.encode([query])
         return np.array(embedding)
+
+    def embed_documents(self, documents: List[str]) -> np.ndarray:
+        """
+        Embed a list of document texts into vectors.
+
+        Args:
+            documents (List[str]): A list of document strings.
+        
+        Returns:
+            np.ndarray: An (N, 384) shaped numpy array, where N is the number of documents.
+        """
+        embeddings = self.model.encode(documents, show_progress_bar=True)
+        return np.array(embeddings)

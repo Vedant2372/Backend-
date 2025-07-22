@@ -7,15 +7,16 @@ from embedder import scan_and_parse_documents
 
 USER_HOME = os.path.expanduser("~")
 FOLDERS_TO_SCAN = [
-    "C:\\",   # 🔥 Full C drive scan
-    "D:\\"    # 🔥 Full D drive scan (if D exists)
+    "C:\\",   # ✅ Full C drive scan with filtering
+    "D:\\"    # ✅ Full D drive scan with filtering
 ]
 
+# ✅ Skip these absolute root folders
 EXCLUDE_DIRS = [
-    "C:\\Windows", 
-    "C:\\Program Files", 
-    "C:\\Program Files (x86)", 
-    "C:\\$Recycle.Bin", 
+    "C:\\Windows",
+    "C:\\Program Files",
+    "C:\\Program Files (x86)",
+    "C:\\$Recycle.Bin",
     os.path.join(USER_HOME, "AppData")
 ]
 
@@ -24,6 +25,7 @@ INDEXER_API_URL = "http://127.0.0.1:5002/index"
 
 app = Flask(__name__)
 
+# ✅ Check if path starts with any excluded root dir
 def is_excluded(path):
     return any(path.startswith(ex_dir) for ex_dir in EXCLUDE_DIRS)
 
@@ -56,12 +58,12 @@ def run_auto_scan():
     except Exception as e:
         print(f"[!] Failed to connect to indexer: {e}")
 
-# Run scan on startup
+# 🚀 Auto-scan when Flask starts
 run_auto_scan()
 
 @app.route("/")
 def index():
-    return "Reader Service is running and sent documents to indexer."
+    return "📁 Reader Service is running and sent documents to indexer."
 
 if __name__ == "__main__":
     app.run(port=5001)
