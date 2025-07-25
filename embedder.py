@@ -1,92 +1,42 @@
 import os
-import datetime
-from docx import Document
-from PyPDF2 import PdfReader
-import openpyxl
 
-EXCLUDED_DIRS = ["C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)", "C:\\$Recycle.Bin", "C:\\System Volume Information"]
-EXCLUDED_KEYWORDS = ['.exe', '.dll', '.venv', '__pycache__', 'node_modules']
+# ✅ File extensions you want to index
+VALID_EXTENSIONS = [".txt", ".pdf", ".docx", ".xlsx", ".xls", ".py", ".java", ".cpp", ".c"]
 
-SUPPORTED_EXTENSIONS = (
-    '.txt', '.docx', '.pdf', '.py', '.java', '.cpp', '.js', '.html', '.css',
-    '.xlsx', '.xls', '.db'
-)
 
-def read_txt(file_path):
-    try:
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read()
-    except Exception:
-        return ""
+# 🚫 Folder names (partial matches) to skip
+EXCLUDED_DIRS = [
+    "Windows", "Program Files", "ProgramData", ".git", ".venv",
+    "AppData", "System Volume Information", "$RECYCLE.BIN",
+    "node_modules", "__pycache__", ".idea", ".vscode"
+]
 
-def read_docx(file_path):
-    try:
-        doc = Document(file_path)
-        return "\n".join(para.text for para in doc.paragraphs)
-    except Exception:
-        return ""
 
-def read_pdf(file_path):
-    try:
-        reader = PdfReader(file_path)
-        return "\n".join([page.extract_text() or "" for page in reader.pages])
-    except Exception:
-        return ""
+def is_valid_file(file_path):
+    _, ext = os.path.splitext(file_path)
+    return ext.lower() in VALID_EXTENSIONS
 
-def read_excel(file_path):
-    try:
-        wb = openpyxl.load_workbook(file_path, data_only=True)
-        content = ""
-        for sheet in wb:
-            for row in sheet.iter_rows(values_only=True):
-                content += " ".join([str(cell) if cell else "" for cell in row]) + "\n"
-        return content
-    except Exception:
-        return ""
+def should_skip_folder(folder_path):
+    folder_path_lower = folder_path.lower()
+    return any(excl in folder_path_lower for excl in EXCLUDED_DIRS)
 
-def read_code(file_path):
-    try:
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read()
-    except Exception:
-        return ""
+def scan_and_parse_documents(root_dir, external_exclude_func=None):
+    parsed_docs = {}
 
-def parse_file(file_path):
-    if file_path.endswith(".txt"):
-        return read_txt(file_path)
-    elif file_path.endswith(".docx"):
-        return read_docx(file_path)
-    elif file_path.endswith(".pdf"):
-        return read_pdf(file_path)
-    elif file_path.endswith(".xlsx") or file_path.endswith(".xls"):
-        return read_excel(file_path)
-    elif file_path.endswith(('.py', '.java', '.cpp', '.js', '.html', '.css')):
-        return read_code(file_path)
-    elif file_path.endswith(".db"):
-        return f"Database file: {os.path.basename(file_path)}"
-    else:
-        return None
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        # Modify the list in-place to skip unwanted folders
+        dirnames[:] = [d for d in dirnames if not should_skip_folder(os.path.join(dirpath, d))]
 
-def should_skip(path):
-    lowered = path.lower()
-    return any(ex in lowered for ex in EXCLUDED_KEYWORDS) or any(lowered.startswith(ex.lower()) for ex in EXCLUDED_DIRS)
-
-def scan_and_parse_documents(base_dir, is_excluded):
-    parsed_documents = {}
-    print(f"📁 Scanning folder: {base_dir}")
-
-    for root, _, files in os.walk(base_dir):
-        if should_skip(root):
-            continue
-        for file in files:
-            path = os.path.join(root, file)
-            if should_skip(path):
+        for file in filenames:
+            file_path = os.path.join(dirpath, file)
+            if external_exclude_func and external_exclude_func(file_path):
                 continue
-            if file.lower().endswith(SUPPORTED_EXTENSIONS):
-                print(f"🔍 Parsing: {path}")
-                text = parse_file(path)
-                if text:
-                    parsed_documents[path] = text
+            if is_valid_file(file_path):
+                parsed_docs[file_path] = {
+                    "filename": file,
+                    "path": file_path,
+                    "modified": os.path.getmtime(file_path),
+                    "type": os.path.splitext(file)[1][1:]
+                }
 
-    print("✅ Scanning and parsing complete.")
-    return parsed_documents
+    return parsed_docs
