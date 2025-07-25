@@ -2,7 +2,7 @@
 import sqlite3
 import os
 
-DB_PATH = "document_metadata.db"
+DB_PATH = "doc_metadata.db"
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)

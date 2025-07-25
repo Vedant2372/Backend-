@@ -6,7 +6,7 @@ import sqlite3
 from datetime import datetime
 
 app = Flask(__name__)
-DB_PATH = "document_metadata.db"
+DB_PATH = "doc_metadata.db"
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
