@@ -1,61 +1,68 @@
-# search_service/search.py
-
-import faiss
-import numpy as np
-import pickle
 import os
+import pickle
+import faiss
+import sqlite3
+from embedder import Embedder
+from datetime import datetime
 
-from query_embedder import QueryEmbedder
+INDEX_PATH = "Aaryan_store/index.faiss"
+META_PATH = "Aaryan_store/meta.pkl"
+DB_PATH = "Aaryan_database.db"
 
-# File paths for FAISS index and metadata
-INDEX_PATH = "vector_storeAaru/index.faiss"
-META_PATH = "vector_storeAaru/meta.pkl"
+embedder = Embedder()
 
-# Load embedding model
-embedder = QueryEmbedder()
-
-def load_faiss_index():
-    if os.path.exists(INDEX_PATH):
-        print("📦 Loading FAISS index...")
-        return faiss.read_index(INDEX_PATH)
-    else:
-        raise FileNotFoundError(f"FAISS index not found at {INDEX_PATH}")
-
-def load_metadata():
-    if os.path.exists(META_PATH):
-        with open(META_PATH, "rb") as f:
-            return pickle.load(f)
-    else:
-        raise FileNotFoundError(f"Metadata not found at {META_PATH}")
-
-def search_documents(query: str, top_k: int = 5):
-    print(f"🔍 Searching for: '{query}'")
-    
-    query_vector = embedder.embed_query(query).astype("float32")
-    index = load_faiss_index()
-    metadata = load_metadata()
-
-    print(f"📦 FAISS index has {index.ntotal} vectors")
-    print(f"📂 Metadata entries: {len(metadata)}")
-
-    if index.ntotal == 0 or len(metadata) == 0:
-        print("[!] FAISS or Metadata is empty.")
-        return []
-
-    distances, indices = index.search(query_vector, top_k)
+def fts_search(query, top_k=5):
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT filename, path FROM documents_fts
+            WHERE documents_fts MATCH ?
+            LIMIT ?
+        ''', (query, top_k))
+        rows = c.fetchall()
 
     results = []
-    for idx in indices[0]:
-        if idx < len(metadata):
-            print(f"✅ Match index {idx}: {metadata[idx]}")
-            results.append(metadata[idx])
-
+    for filename, path in rows:
+        if os.path.exists(path):
+            modified_time = os.path.getmtime(path)
+            results.append({
+                "filename": filename,
+                "path": path,
+                "modified": datetime.fromtimestamp(modified_time).strftime("%Y-%m-%d %H:%M:%S"),
+                "score": "FTS5"
+            })
     return results
 
+def search_documents(query, top_k=5):
+    if not os.path.exists(INDEX_PATH) or not os.path.exists(META_PATH):
+        return fts_search(query, top_k)
 
-if __name__ == "__main__":
-    query = input("🔍 Enter your search query: ")
-    results = search_documents(query)
-    print("\n📄 Top Results:")
-    for path in results:
-        print("➤", path)
+    index = faiss.read_index(INDEX_PATH)
+    with open(META_PATH, "rb") as f:
+        paths = pickle.load(f)
+
+    vector = embedder.embed_texts([query])
+    faiss.normalize_L2(vector)
+
+    D, I = index.search(vector, top_k * 2)
+
+    results = []
+    for i, score in zip(I[0], D[0]):
+        if i < len(paths):
+            path = paths[i]
+            if os.path.exists(path):
+                modified_time = os.path.getmtime(path)
+                results.append({
+                    "filename": os.path.basename(path),
+                    "path": path,
+                    "modified": datetime.fromtimestamp(modified_time).strftime("%Y-%m-%d %H:%M:%S"),
+                    "score": round(float(1 - score), 4)  # similarity instead of distance
+                })
+        if len(results) == top_k:
+            break
+
+    if not results:
+        print("⚠️ No FAISS results found. Falling back to FTS5...")
+        return fts_search(query, top_k)
+
+    return results

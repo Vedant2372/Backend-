@@ -1,11 +1,9 @@
 import requests
 
-def send_query_to_api(query):
+def send_query(q):
     try:
-        response = requests.get(f"http://127.0.0.1:5005/search?q={query}")
-        response.raise_for_status()
-        data = response.json()
-        return data.get("results", [])
+        r = requests.get("http://127.0.0.1:5005/search", params={"q": q})
+        return r.json().get("results", [])
     except Exception as e:
-        print(f"[ERROR] Failed to get results from search API: {e}")
+        print(f"[Query Error] {e}")
         return []

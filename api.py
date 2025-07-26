@@ -1,69 +1,83 @@
-import os, push hoja
-import json
-import requests
-import time
+import os, time, json
 from flask import Flask
-from embedder import scan_and_parse_documents
-
-USER_HOME = os.path.expanduser("~")
-FOLDERS_TO_SCAN = [
-    "C:\\",   # ✅ Full C drive scan with filtering
-    "D:\\"    # ✅ Full D drive scan with filtering
-]
-
-# ✅ Skip these absolute root folders
-EXCLUDE_DIRS = [
-    "C:\\Windows",
-    "C:\\Program Files",
-    "C:\\Program Files (x86)",
-    "C:\\$Recycle.Bin",
-    os.path.join(USER_HOME, "AppData")
-]
-
-SCAN_STATUS_PATH = "../signals/scan_status.json"
-INDEXER_API_URL = "http://127.0.0.1:5002/index"
+from embedder import Embedder
+from reader import read_file_content
+from db import init_db, insert_documents
+import faiss, pickle
 
 app = Flask(__name__)
 
-# ✅ Check if path starts with any excluded root dir
-def is_excluded(path):
-    return any(path.startswith(ex_dir) for ex_dir in EXCLUDE_DIRS)
+SCAN_DIRS = ["C:\\", "D:\\"]
+VALID_EXTS = [".txt", ".pdf", ".docx", ".xlsx", ".xls", ".py", ".java", ".cpp", ".c"]
+EXCLUDED_DIRS = ["Windows", "Program Files", "ProgramData", ".git", ".venv",
+                 "AppData", "System Volume Information", "$RECYCLE.BIN",
+                 "node_modules", "__pycache__", ".idea", ".vscode"]
 
-def write_scan_status(status):
-    os.makedirs(os.path.dirname(SCAN_STATUS_PATH), exist_ok=True)
-    with open(SCAN_STATUS_PATH, "w") as f:
-        json.dump({"status": status}, f)
+INDEX_PATH = "Aaryan_store/index.faiss"
+META_PATH = "Aaryan_store/meta.pkl"
 
-def run_auto_scan():
-    print("📡 Auto-scan started...")
-    start = time.time()
-    total_files = {}
+embedder = Embedder()
 
-    for folder in FOLDERS_TO_SCAN:
-        if os.path.exists(folder):
-            print(f"🔍 Scanning {folder}...")
-            parsed = scan_and_parse_documents(folder, is_excluded)
-            total_files.update(parsed)
-        else:
-            print(f"[!] Folder not found: {folder}")
+def should_exclude(path):
+    return any(excl.lower() in path.lower() for excl in EXCLUDED_DIRS)
 
-    print(f"✅ Auto-scan complete. {len(total_files)} files found.")
-    print(f"⏱ Scan took {round(time.time() - start, 2)}s")
-    write_scan_status("complete")
+def scan_files():
+    files = {}
+    print("🔍 Starting file scan...")
+    for root in SCAN_DIRS:
+        print(f"📁 Scanning {root}")
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if not should_exclude(os.path.join(dirpath, d))]
+            for file in filenames:
+                path = os.path.join(dirpath, file)
+                ext = os.path.splitext(file)[1].lower()
+                if ext in VALID_EXTS and os.path.exists(path):
+                    try:
+                        content = read_file_content(path)
+                        files[path] = {
+                            "filename": file,
+                            "path": path,
+                            "extension": ext,
+                            "size": os.path.getsize(path),
+                            "modified": os.path.getmtime(path),
+                            "content": content
+                        }
+                    except:
+                        continue
+    print(f"✅ File scan complete. Total valid files found: {len(files)}")
+    return files
 
-    try:
-        print("📤 Sending documents to indexer service...")
-        response = requests.post(INDEXER_API_URL, json={"parsed_docs": total_files})
-        print(f"🧠 Indexer response: {response.status_code} - {response.text}")
-    except Exception as e:
-        print(f"[!] Failed to connect to indexer: {e}")
+def index_documents(documents: dict):
+    texts = [v["content"] if v["content"] else v["filename"] for v in documents.values()]
+    paths = list(documents.keys())
 
-# 🚀 Auto-scan when Flask starts
-run_auto_scan()
+    print(f"🧠 Starting embedding for {len(texts)} documents...")
+    vectors = embedder.embed_texts(texts)
+    print("✅ Embedding complete.")
+
+    faiss.normalize_L2(vectors)
+    index = faiss.IndexFlatIP(vectors.shape[1])
+    index.add(vectors)
+
+    os.makedirs(os.path.dirname(INDEX_PATH), exist_ok=True)
+    faiss.write_index(index, INDEX_PATH)
+    with open(META_PATH, "wb") as f:
+        pickle.dump(paths, f)
+
+    print(f"✅ FAISS index saved to '{INDEX_PATH}'. Total documents indexed: {len(paths)}")
 
 @app.route("/")
 def index():
-    return "📁 Reader Service is running and sent documents to indexer."
+    return "📁 Scanner + Indexer is running!"
 
 if __name__ == "__main__":
+    init_db()
+    print("📡 Starting full scan + index process...")
+    docs = scan_files()
+    if not docs:
+        print("⚠️ No valid files to index.")
+    else:
+        inserted = insert_documents(docs)
+        print(f"🗃 Metadata inserted into DB: {inserted}")
+        index_documents(docs)
     app.run(port=5001)
