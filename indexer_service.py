@@ -11,8 +11,13 @@ import os
 app = Flask(__name__)
 
 # Paths
+<<<<<<< HEAD
 INDEX_PATH = "vector_storeAaru/index.faiss"
 META_PATH = "vector_storeAaru/meta.pkl"
+=======
+INDEX_PATH = "vector_store/index.faiss"
+META_PATH = "vector_store/meta.pkl"
+>>>>>>> main
 
 # Load embedding model once
 embedder = QueryEmbedder()

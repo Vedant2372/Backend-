@@ -5,8 +5,13 @@ import numpy as np
 from query_embedder import QueryEmbedder
 
 # Paths to store the FAISS index and metadata
+<<<<<<< HEAD
 INDEX_PATH = "vector_storeAaru/index.faiss"
 META_PATH = "vector_storeAaru/meta.pkl"
+=======
+INDEX_PATH = "vector_store/index.faiss"
+META_PATH = "vector_store/meta.pkl"
+>>>>>>> main
 
 # Load the embedder
 embedder = QueryEmbedder()
