@@ -8,7 +8,13 @@ import faiss, pickle
 app = Flask(__name__)
 
 SCAN_DIRS = ["C:\\", "D:\\"]
-VALID_EXTS = [".txt", ".pdf", ".docx", ".xlsx", ".xls", ".py", ".java", ".cpp", ".c"]
+
+VALID_EXTS = [
+    ".txt", ".pdf", ".docx", ".xlsx", ".xls", ".db",
+    ".js", ".py", ".java", ".cpp", ".c",
+    ".jpg", ".jpeg", ".png", ".bmp", ".webp"
+]
+
 EXCLUDED_DIRS = ["Windows", "Program Files", "ProgramData", ".git", ".venv",
                  "AppData", "System Volume Information", "$RECYCLE.BIN",
                  "node_modules", "__pycache__", ".idea", ".vscode"]

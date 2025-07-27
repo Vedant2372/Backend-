@@ -1,5 +1,3 @@
-import os, datetime
-
 # utils.py
 def format_results(results):
     if not results:
@@ -11,6 +9,6 @@ def format_results(results):
             f"{idx}. 📄 {item['filename']}\n"
             f"   📁 Path: {item['path']}\n"
             f"   🕒 Modified: {item['modified']}\n"
-            f"   🎯 Score: {item['score']}\n"
+            f"   📦 Type: {item['filetype']}\n"
         )
     return "\n".join(output)

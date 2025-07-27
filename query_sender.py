@@ -1,9 +1,4 @@
-import requests
+from search import search_documents
 
-def send_query(q):
-    try:
-        r = requests.get("http://127.0.0.1:5005/search", params={"q": q})
-        return r.json().get("results", [])
-    except Exception as e:
-        print(f"[Query Error] {e}")
-        return []
+def send_query(query, top_k=5):  # ✅ Accept top_k argument here
+    return search_documents(query, top_k=top_k)
